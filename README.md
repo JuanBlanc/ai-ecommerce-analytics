@@ -39,11 +39,7 @@ Sistema de analisis de datos de e-commerce brasileno con chatbot de consultas en
 
 ## Instalacion
 
-### 1. Descargar dataset
-
-1. Ve a [Kaggle Olist Dataset](https://www.kaggle.com/datasets/olistbr/brazilian-ecommerce)
-2. Descarga y descomprime
-3. Copia los CSVs a la carpeta `data/`:
+1. Copia los CSVs a la carpeta `data/`:
 
 ```
 carlos/
@@ -120,7 +116,7 @@ Preguntas que entiende el sistema:
 ## Estructura del proyecto
 
 ```
-carlos/
+dir/
 ├── docker-compose.yml
 ├── .env
 ├── data/                    # CSVs de Kaggle (crear)
