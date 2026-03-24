@@ -1,0 +1,49 @@
+El proyecto debe replicar el esquema visto en clase:
+
+Base de Datos (XAMPP/MySQL): Almacenamiento persistente de la información.
+
+Módulo CORE (Lógica de IA): Un script independiente que procese datos (clasificación, predicción, filtrado NLP, etc.). Si necesita acceder a la base de datos, se comporta como cliente de la API.
+
+API (FastAPI): El cerebro que conecta la BD con el Core y gestiona las peticiones. Sólo la api tiene conexión a la BD.
+
+Cliente (Monitor/Dashboard): Un script que consuma la API y presente los resultados de forma amigable.
+
+Puntos Clave a Evaluar
+Para superar la actividad con éxito, me fijaré especialmente en:
+
+Integración de la Base de Datos:
+
+Conexión correcta mediante SQLAlchemy y uso de sesiones (yield db).
+
+Uso de al menos una tabla principal y una funcionalidad extra (como tablas de logs, palabras prohibidas o históricos).
+
+Módulo Core (IA/Heurística):
+
+La lógica no debe estar "hardcodeada" en la API, sino importada como un módulo externo.
+
+Debe realizar una tarea de IA: desde un detector de spam (NLP), un calculador de precios dinámicos, un chatbot de consulta de base de datos, ticketing o TPV, hasta un motor de matching de perfiles.
+
+Robustez de la API:
+
+Definición correcta de modelos de validación con Pydantic.
+
+Implementación de métodos GET y POST (mínimo obligatorio), valorándose positivamente PUT y DELETE.
+
+Gestión de errores mediante HTTPException (404, 500).
+
+Consumo en el Cliente:
+
+Uso de la librería requests para obtener y enviar datos.
+
+Presentación limpia de los resultados (tablas, mensajes de confirmación).
+
+emáticas Propuestas
+Podéis elegir una de las siguientes o proponer una propia (podéis incluso cambiar el esquema principal, si se justifica adecuadamente):
+
+Detector de Spam/Fraude: Clasificación de mensajes según palabras clave o patrones.
+
+Matching de Candidatos: Algoritmo que compare habilidades de un CV con ofertas de trabajo.
+
+Predicción de Churn: API que calcule la probabilidad de que un cliente abandone el servicio.
+
+Chatbot de Inventario: Consultas en lenguaje natural convertidas a filtros de base de datos.

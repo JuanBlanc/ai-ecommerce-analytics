@@ -1,0 +1,106 @@
+version: '3.8'
+
+# Usa este archivo si NO tienes GPU NVIDIA:
+# docker-compose -f docker-compose.nogpu.yml up --build
+
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: empresa_db
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-admin}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-admin123}
+      POSTGRES_DB: ${POSTGRES_DB:-empresa}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U admin -d empresa"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # Ollama sin GPU (más lento pero funciona)
+  ollama:
+    image: ollama/ollama:latest
+    container_name: empresa_ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    environment:
+      - OLLAMA_HOST=0.0.0.0
+
+  ollama-init:
+    image: curlimages/curl:latest
+    container_name: empresa_ollama_init
+    depends_on:
+      - ollama
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        echo "Esperando a Ollama..."
+        sleep 15
+        echo "Descargando sqlcoder (puede tardar varios minutos)..."
+        curl -X POST http://ollama:11434/api/pull -d '{"name": "sqlcoder:7b"}'
+        echo "Descargando llama3.1..."
+        curl -X POST http://ollama:11434/api/pull -d '{"name": "llama3.1:8b"}'
+        echo "Modelos listos!"
+    restart: "no"
+
+  api:
+    build:
+      context: ./api
+      dockerfile: Dockerfile
+    container_name: empresa_api
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-admin}:${POSTGRES_PASSWORD:-admin123}@db:5432/${POSTGRES_DB:-empresa}
+      CORE_URL: http://core:8000
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./api:/app
+      - ./data:/app/data
+    depends_on:
+      db:
+        condition: service_healthy
+      core:
+        condition: service_started
+
+  core:
+    build:
+      context: ./core
+      dockerfile: Dockerfile
+    container_name: empresa_core
+    environment:
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      OLLAMA_URL: http://ollama:11434
+      SQL_MODEL: sqlcoder:7b
+      CHAT_MODEL: llama3.1:8b
+    ports:
+      - "8001:8000"
+    volumes:
+      - ./core:/app
+    depends_on:
+      - ollama
+
+  client:
+    build:
+      context: ./client
+      dockerfile: Dockerfile
+    container_name: empresa_client
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./client:/app
+      - /app/node_modules
+    depends_on:
+      - api
+    environment:
+      - VITE_API_URL=http://localhost:8000
+
+volumes:
+  postgres_data:
+  ollama_data:
