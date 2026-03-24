@@ -1,152 +1,65 @@
-import axios from 'axios';
+// Cliente API usando fetch nativo (sin dependencias externas)
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
-const api = axios.create({
-  baseURL: API_URL,
-  headers: {
-    'Content-Type': 'application/json',
-  },
-});
+// Funcion auxiliar para peticiones GET
+async function get(endpoint) {
+  const response = await fetch(`${API_URL}${endpoint}`);
+  if (!response.ok) throw new Error(`Error ${response.status}`);
+  return response.json();
+}
 
-// Chatbot
-export const enviarPregunta = async (pregunta) => {
-  const response = await api.post('/chat/', { pregunta });
-  return response.data;
-};
+// Funcion auxiliar para peticiones POST
+async function post(endpoint, data) {
+  const response = await fetch(`${API_URL}${endpoint}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data)
+  });
+  if (!response.ok) throw new Error(`Error ${response.status}`);
+  return response.json();
+}
 
-export const obtenerHistorial = async () => {
-  const response = await api.get('/chat/historial');
-  return response.data;
-};
+// === CHATBOT ===
+export const enviarPregunta = (pregunta) => post('/chat/', { pregunta });
+export const obtenerHistorial = () => get('/chat/historial');
 
-// Estadísticas
-export const obtenerEstadisticas = async () => {
-  const response = await api.get('/estadisticas/');
-  return response.data;
-};
+// === ESTADISTICAS ===
+export const obtenerEstadisticas = () => get('/estadisticas/');
+export const obtenerRevenueCategoria = () => get('/estadisticas/revenue-by-category');
+export const obtenerRevenueEstado = () => get('/estadisticas/revenue-by-state');
+export const obtenerMetodosPago = () => get('/estadisticas/payment-methods');
+export const obtenerTendenciasMensuales = () => get('/estadisticas/monthly-trends');
 
-export const obtenerRevenueCategoria = async () => {
-  const response = await api.get('/estadisticas/revenue-by-category');
-  return response.data;
-};
-
-export const obtenerRevenueEstado = async () => {
-  const response = await api.get('/estadisticas/revenue-by-state');
-  return response.data;
-};
-
-export const obtenerMetodosPago = async () => {
-  const response = await api.get('/estadisticas/payment-methods');
-  return response.data;
-};
-
-export const obtenerTendenciasMensuales = async () => {
-  const response = await api.get('/estadisticas/monthly-trends');
-  return response.data;
-};
-
-// Orders
-export const obtenerOrders = async (status = null, limit = 50) => {
-  const params = new URLSearchParams();
+// === ORDERS ===
+export const obtenerOrders = (status = null, limit = 50) => {
+  const params = new URLSearchParams({ limit });
   if (status) params.append('status', status);
-  params.append('limit', limit);
-  const response = await api.get(`/orders/?${params}`);
-  return response.data;
+  return get(`/orders/?${params}`);
 };
+export const obtenerOrdersPorEstado = () => get('/orders/by-status');
+export const obtenerOrdersMensuales = (year = 2018) => get(`/orders/monthly?year=${year}`);
 
-export const obtenerOrdersPorEstado = async () => {
-  const response = await api.get('/orders/by-status');
-  return response.data;
-};
+// === CUSTOMERS ===
+export const obtenerCustomers = (limit = 50) => get(`/customers/?limit=${limit}`);
+export const obtenerCustomersPorEstado = () => get('/customers/by-state');
+export const obtenerTopSpenders = (limit = 10) => get(`/customers/top-spenders?limit=${limit}`);
+export const obtenerCiudades = (limit = 20) => get(`/customers/cities?limit=${limit}`);
 
-export const obtenerOrdersMensuales = async (year = 2018) => {
-  const response = await api.get(`/orders/monthly?year=${year}`);
-  return response.data;
-};
+// === PRODUCTS ===
+export const obtenerProducts = (limit = 50) => get(`/products/?limit=${limit}`);
+export const obtenerCategorias = () => get('/products/categories');
+export const obtenerProductosPorCategoria = () => get('/products/by-category');
+export const obtenerTopSelling = (limit = 10) => get(`/products/top-selling?limit=${limit}`);
 
-// Customers
-export const obtenerCustomers = async (limit = 50) => {
-  const response = await api.get(`/customers/?limit=${limit}`);
-  return response.data;
-};
+// === SELLERS ===
+export const obtenerSellers = (limit = 50) => get(`/sellers/?limit=${limit}`);
+export const obtenerSellersPorEstado = () => get('/sellers/by-state');
+export const obtenerTopSellers = (limit = 10) => get(`/sellers/top-performers?limit=${limit}`);
+export const obtenerBestRatedSellers = (limit = 10) => get(`/sellers/best-rated?limit=${limit}`);
 
-export const obtenerCustomersPorEstado = async () => {
-  const response = await api.get('/customers/by-state');
-  return response.data;
-};
-
-export const obtenerTopSpenders = async (limit = 10) => {
-  const response = await api.get(`/customers/top-spenders?limit=${limit}`);
-  return response.data;
-};
-
-export const obtenerCiudades = async (limit = 20) => {
-  const response = await api.get(`/customers/cities?limit=${limit}`);
-  return response.data;
-};
-
-// Products
-export const obtenerProducts = async (limit = 50) => {
-  const response = await api.get(`/products/?limit=${limit}`);
-  return response.data;
-};
-
-export const obtenerCategorias = async () => {
-  const response = await api.get('/products/categories');
-  return response.data;
-};
-
-export const obtenerProductosPorCategoria = async () => {
-  const response = await api.get('/products/by-category');
-  return response.data;
-};
-
-export const obtenerTopSelling = async (limit = 10) => {
-  const response = await api.get(`/products/top-selling?limit=${limit}`);
-  return response.data;
-};
-
-// Sellers
-export const obtenerSellers = async (limit = 50) => {
-  const response = await api.get(`/sellers/?limit=${limit}`);
-  return response.data;
-};
-
-export const obtenerSellersPorEstado = async () => {
-  const response = await api.get('/sellers/by-state');
-  return response.data;
-};
-
-export const obtenerTopSellers = async (limit = 10) => {
-  const response = await api.get(`/sellers/top-performers?limit=${limit}`);
-  return response.data;
-};
-
-export const obtenerBestRatedSellers = async (limit = 10) => {
-  const response = await api.get(`/sellers/best-rated?limit=${limit}`);
-  return response.data;
-};
-
-// Reviews
-export const obtenerReviewsStats = async () => {
-  const response = await api.get('/reviews/stats');
-  return response.data;
-};
-
-export const obtenerDistribucionReviews = async () => {
-  const response = await api.get('/reviews/distribution');
-  return response.data;
-};
-
-export const obtenerReviewsNegativas = async (limit = 20) => {
-  const response = await api.get(`/reviews/negative?limit=${limit}`);
-  return response.data;
-};
-
-export const obtenerReviewsPorCategoria = async () => {
-  const response = await api.get('/reviews/by-category');
-  return response.data;
-};
-
-export default api;
+// === REVIEWS ===
+export const obtenerReviewsStats = () => get('/reviews/stats');
+export const obtenerDistribucionReviews = () => get('/reviews/distribution');
+export const obtenerReviewsNegativas = (limit = 20) => get(`/reviews/negative?limit=${limit}`);
+export const obtenerReviewsPorCategoria = () => get('/reviews/by-category');

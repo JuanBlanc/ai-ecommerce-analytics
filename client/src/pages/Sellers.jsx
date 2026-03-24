@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Store, TrendingUp, Star, MapPin } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { obtenerSellers, obtenerSellersPorEstado, obtenerTopSellers, obtenerBestRatedSellers } from '../api';
+import { formatCurrency, formatNumber } from '../utils/formatters';
 
 function Sellers() {
   const [sellers, setSellers] = useState([]);
@@ -36,8 +37,6 @@ function Sellers() {
   if (loading) {
     return <div className="text-white text-xl">Cargando vendedores...</div>;
   }
-
-  const formatCurrency = (value) => `R$ ${value.toLocaleString()}`;
 
   return (
     <div className="space-y-6">
@@ -83,15 +82,15 @@ function Sellers() {
 
       {vista === 'top' && (
         <div className="grid gap-4">
-          {topSellers.map((seller, index) => (
-            <div key={index} className="bg-gray-800 rounded-xl border border-gray-700 p-6 flex items-center gap-4">
+          {topSellers.map((seller) => (
+            <div key={seller.seller_id} className="bg-gray-800 rounded-xl border border-gray-700 p-6 flex items-center gap-4">
               <div className={`w-12 h-12 rounded-full flex items-center justify-center text-xl font-bold ${
-                index === 0 ? 'bg-yellow-500 text-yellow-900' :
-                index === 1 ? 'bg-gray-400 text-gray-800' :
-                index === 2 ? 'bg-orange-600 text-orange-100' :
+                topSellers.indexOf(seller) === 0 ? 'bg-yellow-500 text-yellow-900' :
+                topSellers.indexOf(seller) === 1 ? 'bg-gray-400 text-gray-800' :
+                topSellers.indexOf(seller) === 2 ? 'bg-orange-600 text-orange-100' :
                 'bg-gray-600 text-gray-300'
               }`}>
-                {index + 1}
+                {topSellers.indexOf(seller) + 1}
               </div>
 
               <div className="flex-1">
@@ -110,8 +109,8 @@ function Sellers() {
 
       {vista === 'rating' && (
         <div className="grid gap-4">
-          {bestRated.map((seller, index) => (
-            <div key={index} className="bg-gray-800 rounded-xl border border-gray-700 p-6 flex items-center gap-4">
+          {bestRated.map((seller) => (
+            <div key={seller.seller_id} className="bg-gray-800 rounded-xl border border-gray-700 p-6 flex items-center gap-4">
               <div className="w-12 h-12 rounded-full bg-yellow-600 flex items-center justify-center">
                 <Star size={24} className="text-white" />
               </div>
@@ -142,7 +141,7 @@ function Sellers() {
               <YAxis type="category" dataKey="state" stroke="#9CA3AF" width={40} />
               <Tooltip
                 contentStyle={{ backgroundColor: '#1F2937', border: '1px solid #374151' }}
-                formatter={(value) => [value.toLocaleString(), 'Vendedores']}
+                formatter={(value) => [formatNumber(value), 'Vendedores']}
               />
               <Bar dataKey="count" fill="#F59E0B" radius={[0, 4, 4, 0]} />
             </BarChart>

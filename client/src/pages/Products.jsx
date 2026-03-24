@@ -2,8 +2,8 @@ import { useState, useEffect } from 'react';
 import { Package, TrendingUp } from 'lucide-react';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, BarChart, Bar, XAxis, YAxis } from 'recharts';
 import { obtenerProducts, obtenerProductosPorCategoria, obtenerTopSelling, obtenerCategorias } from '../api';
-
-const COLORS = ['#10B981', '#3B82F6', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#06B6D4', '#84CC16'];
+import { formatCurrency, formatNumber } from '../utils/formatters';
+import { CHART_COLORS } from '../utils/constants';
 
 function Products() {
   const [products, setProducts] = useState([]);
@@ -38,8 +38,6 @@ function Products() {
   if (loading) {
     return <div className="text-white text-xl">Cargando productos...</div>;
   }
-
-  const formatCurrency = (value) => `R$ ${value.toLocaleString()}`;
 
   return (
     <div className="space-y-6">
@@ -87,15 +85,18 @@ function Products() {
                   outerRadius={120}
                   dataKey="count"
                   nameKey="category"
-                  label={({ category, count }) => `${count}`}
+                  label={({ count }) => `${count}`}
                 >
-                  {productosPorCategoria.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                  {productosPorCategoria.map((entry) => (
+                    <Cell
+                      key={`cell-${entry.category}`}
+                      fill={CHART_COLORS[productosPorCategoria.indexOf(entry) % CHART_COLORS.length]}
+                    />
                   ))}
                 </Pie>
                 <Tooltip
                   contentStyle={{ backgroundColor: '#1F2937', border: '1px solid #374151' }}
-                  formatter={(value, name, props) => [value.toLocaleString(), props.payload.category]}
+                  formatter={(value, name, props) => [formatNumber(value), props.payload.category]}
                 />
               </PieChart>
             </ResponsiveContainer>
@@ -105,18 +106,18 @@ function Products() {
           <div className="bg-gray-800 rounded-xl p-6 border border-gray-700">
             <h2 className="text-xl font-semibold text-white mb-4">Top Categorias</h2>
             <div className="space-y-3">
-              {productosPorCategoria.map((cat, index) => (
-                <div key={index} className="flex items-center justify-between">
+              {productosPorCategoria.map((cat) => (
+                <div key={cat.category || 'sin-cat'} className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <div
                       className="w-3 h-3 rounded-full"
-                      style={{ backgroundColor: COLORS[index % COLORS.length] }}
+                      style={{ backgroundColor: CHART_COLORS[productosPorCategoria.indexOf(cat) % CHART_COLORS.length] }}
                     />
                     <span className="text-white text-sm truncate max-w-[250px]">
                       {cat.category || 'Sin categoria'}
                     </span>
                   </div>
-                  <span className="text-purple-400 font-medium">{cat.count.toLocaleString()}</span>
+                  <span className="text-purple-400 font-medium">{formatNumber(cat.count)}</span>
                 </div>
               ))}
             </div>
@@ -132,7 +133,7 @@ function Products() {
               <Tooltip
                 contentStyle={{ backgroundColor: '#1F2937', border: '1px solid #374151' }}
                 formatter={(value, name) => [
-                  name === 'total_revenue' ? formatCurrency(value) : value.toLocaleString(),
+                  name === 'total_revenue' ? formatCurrency(value) : formatNumber(value),
                   name === 'total_revenue' ? 'Ingresos' : 'Vendidos'
                 ]}
               />
@@ -141,11 +142,11 @@ function Products() {
           </ResponsiveContainer>
 
           <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
-            {topSelling.map((item, index) => (
-              <div key={index} className="bg-gray-700/50 rounded-lg p-4 flex justify-between items-center">
+            {topSelling.map((item) => (
+              <div key={item.category || 'n-a'} className="bg-gray-700/50 rounded-lg p-4 flex justify-between items-center">
                 <div>
                   <p className="text-white font-medium truncate max-w-[200px]">{item.category || 'N/A'}</p>
-                  <p className="text-gray-400 text-sm">{item.times_sold.toLocaleString()} vendidos</p>
+                  <p className="text-gray-400 text-sm">{formatNumber(item.times_sold)} vendidos</p>
                 </div>
                 <p className="text-green-400 font-bold">{formatCurrency(item.total_revenue)}</p>
               </div>

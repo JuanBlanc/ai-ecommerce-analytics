@@ -19,10 +19,13 @@ services:
       timeout: 5s
       retries: 5
 
-  # Ollama para modelos locales (sqlcoder + llama3.1)
+  # OPCIONAL: Ollama con sqlcoder (SQL gratis, requiere GPU)
+  # https://ollama.com | https://hub.docker.com/r/ollama/ollama
+  # Para activar: docker-compose --profile gpu up
   ollama:
     image: ollama/ollama:latest
     container_name: empresa_ollama
+    profiles: ["gpu"]
     ports:
       - "11434:11434"
     volumes:
@@ -34,24 +37,21 @@ services:
             - driver: nvidia
               count: all
               capabilities: [gpu]
-    # Si no tienes GPU NVIDIA, comenta las líneas de deploy arriba
 
-  # Inicializador de modelos (descarga sqlcoder y llama3.1)
   ollama-init:
     image: curlimages/curl:latest
     container_name: empresa_ollama_init
+    profiles: ["gpu"]
     depends_on:
       - ollama
     entrypoint: ["/bin/sh", "-c"]
     command:
       - |
         echo "Esperando a Ollama..."
-        sleep 10
+        sleep 15
         echo "Descargando sqlcoder..."
         curl -X POST http://ollama:11434/api/pull -d '{"name": "sqlcoder:7b"}'
-        echo "Descargando llama3.1..."
-        curl -X POST http://ollama:11434/api/pull -d '{"name": "llama3.1:8b"}'
-        echo "Modelos listos!"
+        echo "Modelo listo!"
     restart: "no"
 
   api:
@@ -79,16 +79,13 @@ services:
       dockerfile: Dockerfile
     container_name: empresa_core
     environment:
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
-      OLLAMA_URL: http://ollama:11434
-      SQL_MODEL: sqlcoder:7b
-      CHAT_MODEL: llama3.1:8b
+      USE_OLLAMA: ${USE_OLLAMA:-false}
     ports:
       - "8001:8000"
     volumes:
       - ./core:/app
-    depends_on:
-      - ollama
 
   client:
     build:

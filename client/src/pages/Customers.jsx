@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Users, Trophy, MapPin } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { obtenerCustomers, obtenerCustomersPorEstado, obtenerTopSpenders, obtenerCiudades } from '../api';
+import { formatCurrency, formatNumber } from '../utils/formatters';
 
 function Customers() {
   const [customers, setCustomers] = useState([]);
@@ -36,8 +37,6 @@ function Customers() {
   if (loading) {
     return <div className="text-white text-xl">Cargando clientes...</div>;
   }
-
-  const formatCurrency = (value) => `R$ ${value.toLocaleString()}`;
 
   return (
     <div className="space-y-6">
@@ -83,7 +82,7 @@ function Customers() {
                 <YAxis type="category" dataKey="state" stroke="#9CA3AF" width={40} />
                 <Tooltip
                   contentStyle={{ backgroundColor: '#1F2937', border: '1px solid #374151' }}
-                  formatter={(value) => [value.toLocaleString(), 'Clientes']}
+                  formatter={(value) => [formatNumber(value), 'Clientes']}
                 />
                 <Bar dataKey="count" fill="#3B82F6" radius={[0, 4, 4, 0]} />
               </BarChart>
@@ -94,16 +93,16 @@ function Customers() {
           <div className="bg-gray-800 rounded-xl p-6 border border-gray-700">
             <h2 className="text-xl font-semibold text-white mb-4">Ciudades Principales</h2>
             <div className="space-y-3">
-              {ciudades.map((ciudad, index) => (
-                <div key={index} className="flex items-center justify-between">
+              {ciudades.map((ciudad) => (
+                <div key={`${ciudad.city}-${ciudad.state}`} className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <span className="text-gray-500 w-6">{index + 1}.</span>
+                    <span className="text-gray-500 w-6">{ciudades.indexOf(ciudad) + 1}.</span>
                     <div>
                       <p className="text-white">{ciudad.city}</p>
                       <p className="text-gray-500 text-sm">{ciudad.state}</p>
                     </div>
                   </div>
-                  <span className="text-blue-400 font-medium">{ciudad.count.toLocaleString()}</span>
+                  <span className="text-blue-400 font-medium">{formatNumber(ciudad.count)}</span>
                 </div>
               ))}
             </div>
@@ -111,15 +110,15 @@ function Customers() {
         </div>
       ) : (
         <div className="grid gap-4">
-          {topSpenders.map((customer, index) => (
-            <div key={index} className="bg-gray-800 rounded-xl border border-gray-700 p-6 flex items-center gap-4">
+          {topSpenders.map((customer) => (
+            <div key={customer.customer_id} className="bg-gray-800 rounded-xl border border-gray-700 p-6 flex items-center gap-4">
               <div className={`w-12 h-12 rounded-full flex items-center justify-center text-xl font-bold ${
-                index === 0 ? 'bg-yellow-500 text-yellow-900' :
-                index === 1 ? 'bg-gray-400 text-gray-800' :
-                index === 2 ? 'bg-orange-600 text-orange-100' :
+                topSpenders.indexOf(customer) === 0 ? 'bg-yellow-500 text-yellow-900' :
+                topSpenders.indexOf(customer) === 1 ? 'bg-gray-400 text-gray-800' :
+                topSpenders.indexOf(customer) === 2 ? 'bg-orange-600 text-orange-100' :
                 'bg-gray-600 text-gray-300'
               }`}>
-                {index + 1}
+                {topSpenders.indexOf(customer) + 1}
               </div>
 
               <div className="flex-1">

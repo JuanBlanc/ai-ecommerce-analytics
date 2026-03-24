@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
-import { Star, ThumbsUp, ThumbsDown, BarChart3 } from 'lucide-react';
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
+import { Star, ThumbsDown, BarChart3 } from 'lucide-react';
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { obtenerReviewsStats, obtenerDistribucionReviews, obtenerReviewsNegativas, obtenerReviewsPorCategoria } from '../api';
-
-const COLORS = ['#EF4444', '#F97316', '#F59E0B', '#84CC16', '#10B981'];
+import { formatNumber, formatDate } from '../utils/formatters';
+import { SCORE_COLORS } from '../utils/constants';
+import { StarRating } from '../components/StarRating';
 
 function Reviews() {
   const [stats, setStats] = useState(null);
@@ -38,16 +39,6 @@ function Reviews() {
   if (loading) {
     return <div className="text-white text-xl">Cargando reviews...</div>;
   }
-
-  const renderStars = (score) => {
-    return Array.from({ length: 5 }, (_, i) => (
-      <Star
-        key={i}
-        size={16}
-        className={i < score ? 'text-yellow-400 fill-yellow-400' : 'text-gray-600'}
-      />
-    ));
-  };
 
   return (
     <div className="space-y-6">
@@ -88,7 +79,7 @@ function Reviews() {
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div className="bg-gray-800 rounded-xl p-6 border border-gray-700">
               <p className="text-gray-400 text-sm">Total Reviews</p>
-              <p className="text-3xl font-bold text-white mt-1">{stats?.total_reviews?.toLocaleString()}</p>
+              <p className="text-3xl font-bold text-white mt-1">{formatNumber(stats?.total_reviews)}</p>
             </div>
             <div className="bg-gray-800 rounded-xl p-6 border border-gray-700">
               <p className="text-gray-400 text-sm">Puntuacion Media</p>
@@ -99,7 +90,7 @@ function Reviews() {
             </div>
             <div className="bg-gray-800 rounded-xl p-6 border border-gray-700">
               <p className="text-gray-400 text-sm">Con Comentarios</p>
-              <p className="text-3xl font-bold text-white mt-1">{stats?.with_comments?.toLocaleString()}</p>
+              <p className="text-3xl font-bold text-white mt-1">{formatNumber(stats?.with_comments)}</p>
             </div>
             <div className="bg-gray-800 rounded-xl p-6 border border-gray-700">
               <p className="text-gray-400 text-sm">Rango</p>
@@ -117,11 +108,11 @@ function Reviews() {
                   <YAxis stroke="#9CA3AF" tickFormatter={(v) => `${(v/1000).toFixed(0)}k`} />
                   <Tooltip
                     contentStyle={{ backgroundColor: '#1F2937', border: '1px solid #374151' }}
-                    formatter={(value) => [value.toLocaleString(), 'Reviews']}
+                    formatter={(value) => [formatNumber(value), 'Reviews']}
                   />
                   <Bar dataKey="count" radius={[4, 4, 0, 0]}>
-                    {distribucion.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[entry.score - 1]} />
+                    {distribucion.map((entry) => (
+                      <Cell key={`cell-${entry.score}`} fill={SCORE_COLORS[entry.score - 1]} />
                     ))}
                   </Bar>
                 </BarChart>
@@ -132,11 +123,11 @@ function Reviews() {
             <div className="bg-gray-800 rounded-xl p-6 border border-gray-700">
               <h2 className="text-xl font-semibold text-white mb-4">Puntuacion por Categoria</h2>
               <div className="space-y-3">
-                {porCategoria.slice(0, 10).map((cat, index) => (
-                  <div key={index} className="flex items-center justify-between">
+                {porCategoria.slice(0, 10).map((cat) => (
+                  <div key={cat.category || 'n-a'} className="flex items-center justify-between">
                     <span className="text-white text-sm truncate max-w-[200px]">{cat.category || 'N/A'}</span>
                     <div className="flex items-center gap-2">
-                      <div className="flex">{renderStars(Math.round(cat.avg_score))}</div>
+                      <StarRating score={Math.round(cat.avg_score)} size={16} />
                       <span className="text-yellow-400 font-medium w-10 text-right">{cat.avg_score}</span>
                     </div>
                   </div>
@@ -150,16 +141,14 @@ function Reviews() {
       {vista === 'negativas' && (
         <div className="space-y-4">
           <p className="text-gray-400">Reviews con puntuacion 1-2 estrellas y comentario:</p>
-          {negativas.map((review, index) => (
-            <div key={index} className="bg-gray-800 rounded-xl border border-gray-700 p-6">
+          {negativas.map((review) => (
+            <div key={review.review_id || `${review.order_id}-${review.score}`} className="bg-gray-800 rounded-xl border border-gray-700 p-6">
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
-                  <div className="flex">{renderStars(review.score)}</div>
+                  <StarRating score={review.score} size={16} />
                   <span className="text-red-400 font-medium">{review.score}/5</span>
                 </div>
-                <span className="text-gray-500 text-sm">
-                  {review.date ? new Date(review.date).toLocaleDateString('es-ES') : '-'}
-                </span>
+                <span className="text-gray-500 text-sm">{formatDate(review.date)}</span>
               </div>
               <p className="text-gray-300">{review.message || 'Sin comentario'}</p>
             </div>

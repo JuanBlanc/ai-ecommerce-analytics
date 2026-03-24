@@ -62,7 +62,6 @@ carlos/
 ### 2. Arrancar servicios
 
 ```bash
-cd carlos
 docker-compose up --build
 ```
 

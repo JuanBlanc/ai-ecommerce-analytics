@@ -2,7 +2,9 @@ import { useState, useRef, useEffect } from 'react';
 import { Send, Bot, User, Database, Sparkles, TrendingUp, Lightbulb } from 'lucide-react';
 import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { enviarPregunta } from '../api';
+import { CHART_COLORS } from '../utils/constants';
 
+// Preguntas de ejemplo para el chat
 const EJEMPLOS = [
   "¿Cuáles son las ventas por estado?",
   "Top 10 categorías más vendidas",
@@ -13,8 +15,6 @@ const EJEMPLOS = [
   "¿Cuánto hemos facturado en total?",
   "Clientes que más han gastado",
 ];
-
-const COLORS = ['#10B981', '#3B82F6', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#14B8A6', '#F97316'];
 
 function DynamicChart({ grafica, datos }) {
   if (!grafica || !datos || datos.length === 0) return null;
@@ -97,7 +97,7 @@ function DynamicChart({ grafica, datos }) {
               label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
             >
               {chartData.map((entry, index) => (
-                <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
               ))}
             </Pie>
             <Tooltip contentStyle={{ backgroundColor: '#1F2937', border: '1px solid #374151' }} />

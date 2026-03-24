@@ -1,8 +1,11 @@
 import { useState, useEffect } from 'react';
-import { ShoppingCart, Users, Package, Store, DollarSign, Star, TrendingUp, XCircle } from 'lucide-react';
+import { ShoppingCart, Users, Package, Store, DollarSign, Star, TrendingUp } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from 'recharts';
 import { obtenerEstadisticas, obtenerRevenueCategoria, obtenerOrdersPorEstado, obtenerTendenciasMensuales } from '../api';
+import { formatCurrency, formatNumber } from '../utils/formatters';
+import { CHART_COLORS } from '../utils/constants';
 
+// Tarjeta de estadistica reutilizable
 function StatCard({ title, value, icon: Icon, color, subtitle }) {
   return (
     <div className="bg-gray-800 rounded-xl p-6 border border-gray-700">
@@ -19,8 +22,6 @@ function StatCard({ title, value, icon: Icon, color, subtitle }) {
     </div>
   );
 }
-
-const COLORS = ['#10B981', '#3B82F6', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899'];
 
 function Dashboard() {
   const [stats, setStats] = useState(null);
@@ -39,19 +40,17 @@ function Dashboard() {
           obtenerOrdersPorEstado(),
           obtenerTendenciasMensuales()
         ]);
-
         setStats(statsData);
         setRevenueCategoria(revenueData.slice(0, 8));
         setOrdersPorEstado(ordersData);
         setTendencias(tendenciasData);
       } catch (err) {
-        setError('Error al cargar datos. Verifica que la API esté corriendo y los datos importados.');
+        setError('Error al cargar datos. Verifica que la API esté corriendo.');
         console.error(err);
       } finally {
         setLoading(false);
       }
     };
-
     cargarDatos();
   }, []);
 
@@ -80,15 +79,6 @@ function Dashboard() {
     );
   }
 
-  const formatCurrency = (value) => {
-    return new Intl.NumberFormat('es-ES', {
-      style: 'currency',
-      currency: 'BRL',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0
-    }).format(value);
-  };
-
   return (
     <div className="space-y-8">
       <div>
@@ -96,45 +86,46 @@ function Dashboard() {
         <p className="text-gray-400 mt-1">E-Commerce brasileno - Datos reales 2016-2018</p>
       </div>
 
-      {/* Stats Grid */}
+      {/* Stats principales */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
           title="Pedidos"
-          value={stats?.total_orders?.toLocaleString() || 0}
+          value={formatNumber(stats?.total_orders)}
           icon={ShoppingCart}
           color="bg-green-600"
-          subtitle={`${stats?.orders_delivered?.toLocaleString() || 0} entregados`}
+          subtitle={`${formatNumber(stats?.orders_delivered)} entregados`}
         />
         <StatCard
           title="Clientes"
-          value={stats?.total_customers?.toLocaleString() || 0}
+          value={formatNumber(stats?.total_customers)}
           icon={Users}
           color="bg-blue-600"
         />
         <StatCard
           title="Productos"
-          value={stats?.total_products?.toLocaleString() || 0}
+          value={formatNumber(stats?.total_products)}
           icon={Package}
           color="bg-purple-600"
         />
         <StatCard
           title="Vendedores"
-          value={stats?.total_sellers?.toLocaleString() || 0}
+          value={formatNumber(stats?.total_sellers)}
           icon={Store}
           color="bg-orange-600"
         />
       </div>
 
+      {/* Stats secundarias */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <StatCard
           title="Ingresos Totales"
-          value={formatCurrency(stats?.total_revenue || 0)}
+          value={formatCurrency(stats?.total_revenue)}
           icon={DollarSign}
           color="bg-emerald-600"
         />
         <StatCard
           title="Ticket Medio"
-          value={formatCurrency(stats?.avg_order_value || 0)}
+          value={formatCurrency(stats?.avg_order_value)}
           icon={TrendingUp}
           color="bg-cyan-600"
         />
@@ -143,13 +134,13 @@ function Dashboard() {
           value={`${stats?.avg_review_score || 0} / 5`}
           icon={Star}
           color="bg-yellow-600"
-          subtitle={`${stats?.orders_canceled || 0} cancelados`}
+          subtitle={`${formatNumber(stats?.orders_canceled)} cancelados`}
         />
       </div>
 
-      {/* Charts */}
+      {/* Graficos */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Tendencias Mensuales */}
+        {/* Tendencias mensuales */}
         <div className="bg-gray-800 rounded-xl p-6 border border-gray-700">
           <h2 className="text-xl font-semibold text-white mb-4">Tendencia de Ventas</h2>
           <ResponsiveContainer width="100%" height={300}>
@@ -159,7 +150,6 @@ function Dashboard() {
               <YAxis stroke="#9CA3AF" tickFormatter={(v) => `${(v/1000).toFixed(0)}k`} />
               <Tooltip
                 contentStyle={{ backgroundColor: '#1F2937', border: '1px solid #374151' }}
-                labelStyle={{ color: '#fff' }}
                 formatter={(value) => [formatCurrency(value), 'Ingresos']}
               />
               <Line type="monotone" dataKey="total_revenue" stroke="#10B981" strokeWidth={2} dot={false} />
@@ -167,7 +157,7 @@ function Dashboard() {
           </ResponsiveContainer>
         </div>
 
-        {/* Pedidos por Estado */}
+        {/* Pedidos por estado */}
         <div className="bg-gray-800 rounded-xl p-6 border border-gray-700">
           <h2 className="text-xl font-semibold text-white mb-4">Pedidos por Estado</h2>
           <ResponsiveContainer width="100%" height={300}>
@@ -181,8 +171,8 @@ function Dashboard() {
                 nameKey="status"
                 label={({ status, count }) => `${status}: ${count}`}
               >
-                {ordersPorEstado.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                {ordersPorEstado.map((entry) => (
+                  <Cell key={`cell-${entry.status}`} fill={CHART_COLORS[ordersPorEstado.indexOf(entry) % CHART_COLORS.length]} />
                 ))}
               </Pie>
               <Tooltip contentStyle={{ backgroundColor: '#1F2937', border: '1px solid #374151' }} />
@@ -191,7 +181,7 @@ function Dashboard() {
         </div>
       </div>
 
-      {/* Revenue por Categoria */}
+      {/* Revenue por categoria */}
       <div className="bg-gray-800 rounded-xl p-6 border border-gray-700">
         <h2 className="text-xl font-semibold text-white mb-4">Ingresos por Categoria</h2>
         <ResponsiveContainer width="100%" height={350}>
