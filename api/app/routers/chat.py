@@ -20,6 +20,31 @@ def _convertir_tipos(datos: List[dict]) -> None:
                 fila[key] = value.isoformat()
 
 
+def _validar_seleccion(query: ChatQuery) -> None:
+    """
+    Valida que el backend elegido este disponible y que el modelo pertenezca a
+    el. El tipo Literal de ChatQuery ya descarta ids desconocidos (422).
+    """
+    if not query.backend:
+        return
+
+    elegido = next(b for b in listar_backends() if b["id"] == query.backend)
+
+    if not elegido["disponible"]:
+        raise HTTPException(
+            status_code=400,
+            detail=f"El backend '{query.backend}' no esta disponible. "
+                   "Consulta GET /chat/modelos."
+        )
+
+    if query.modelo and query.modelo not in elegido["modelos"]:
+        raise HTTPException(
+            status_code=400,
+            detail=f"El modelo '{query.modelo}' no esta disponible en "
+                   f"'{query.backend}'. Opciones: {', '.join(elegido['modelos'])}"
+        )
+
+
 @router.post("/", response_model=ChatResponse)
 def procesar_consulta(query: ChatQuery, db: Session = Depends(get_db)):
     """
@@ -29,17 +54,24 @@ def procesar_consulta(query: ChatQuery, db: Session = Depends(get_db)):
     3. Analiza resultados y genera respuesta narrativa
     4. Recomienda tipo de grafica
 
+    Acepta `backend` y `modelo` opcionales para elegir con que generar el SQL;
+    sin ellos se usa la cadena automatica del CORE.
+
     Endpoint sincrono a proposito: el CORE hace llamadas de red bloqueantes al
     LLM, asi que FastAPI lo ejecuta en su threadpool y no bloquea el event loop.
     """
+    _validar_seleccion(query)
+
     # 1. El CORE genera el SQL a partir de la pregunta
     try:
-        resultado_core = procesar_pregunta(query.pregunta)
+        resultado_core = procesar_pregunta(query.pregunta, query.backend, query.modelo)
     except Exception as e:
         raise HTTPException(
             status_code=500,
             detail=f"Error al procesar la pregunta en el modulo CORE: {e}"
         )
+
+    modelo_usado = resultado_core.get("modelo")
 
     # Si hay error en la generacion de SQL
     if resultado_core.get("error"):
@@ -50,6 +82,7 @@ def procesar_consulta(query: ChatQuery, db: Session = Depends(get_db)):
             datos=None,
             grafica=None,
             insights=None,
+            modelo_usado=modelo_usado,
             exitosa=False
         )
 
@@ -109,6 +142,7 @@ def procesar_consulta(query: ChatQuery, db: Session = Depends(get_db)):
         datos=datos if datos else None,
         grafica=grafica,
         insights=insights if insights else None,
+        modelo_usado=modelo_usado,
         exitosa=bool(query_sql)
     )
 

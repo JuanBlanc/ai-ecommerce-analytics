@@ -1,5 +1,5 @@
-from pydantic import BaseModel
-from typing import Optional, List
+from pydantic import BaseModel, model_validator
+from typing import Optional, List, Literal
 from datetime import datetime
 from decimal import Decimal
 
@@ -122,8 +122,23 @@ class CategoryResponse(BaseModel):
 
 
 # ============ CHATBOT ============
+BackendID = Literal["ollama", "claude", "openai"]
+
+
 class ChatQuery(BaseModel):
     pregunta: str
+    # Seleccion opcional: sin ellos se usa la cadena automatica del CORE
+    # (Ollama local > Claude > compatible OpenAI). Los valores validos salen
+    # de GET /chat/modelos.
+    backend: Optional[BackendID] = None
+    modelo: Optional[str] = None
+
+    @model_validator(mode="after")
+    def _modelo_requiere_backend(self):
+        """Un modelo suelto seria ambiguo: dos backends pueden ofrecer el mismo."""
+        if self.modelo and not self.backend:
+            raise ValueError("Indica 'backend' cuando especifiques 'modelo'")
+        return self
 
 
 class GraficaConfig(BaseModel):
@@ -140,6 +155,9 @@ class ChatResponse(BaseModel):
     datos: Optional[List[dict]] = None
     grafica: Optional[GraficaConfig] = None
     insights: Optional[List[str]] = None
+    # Modelo que genero el SQL. El analisis narrativo va siempre por la cadena
+    # automatica (Claude > compatible OpenAI) y puede usar otro modelo.
+    modelo_usado: Optional[str] = None
     exitosa: bool = True
 
 

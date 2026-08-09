@@ -229,9 +229,9 @@ Pregunta: {pregunta}
 Responde SOLO con el SELECT (maximo {Config.SQL_LIMIT} filas con LIMIT):"""
 
 
-def generar_sql_ollama(pregunta: str) -> dict:
+def generar_sql_ollama(pregunta: str, modelo: str | None = None) -> dict:
     """Genera SQL usando el Ollama instalado en el host."""
-    modelo = modelo_ollama_por_defecto()
+    modelo = modelo or modelo_ollama_por_defecto()
     if not modelo:
         return {"sql": None}
 
@@ -265,36 +265,38 @@ Only respond with the SQL query, no explanation. Use LIMIT {Config.SQL_LIMIT}.
     return {"sql": None}
 
 
-def generar_sql_claude(pregunta: str) -> dict:
+def generar_sql_claude(pregunta: str, modelo: str | None = None) -> dict:
     """Genera SQL usando Claude."""
+    modelo = modelo or Config.CLAUDE_MODEL
     try:
         message = claude_client.messages.create(
-            model=Config.CLAUDE_MODEL,
+            model=modelo,
             max_tokens=Config.MAX_TOKENS_SQL,
             messages=[{"role": "user", "content": _prompt_sql(pregunta)}]
         )
         text = message.content[0].text
         sql = _validar_sql(text)
         if sql:
-            return {"sql": sql, "modelo": Config.CLAUDE_MODEL}
+            return {"sql": sql, "modelo": modelo}
         return {"sql": None}
     except Exception as e:
         logger.error(f"[Claude] Error: {e}")
         return {"sql": None, "error": str(e)}
 
 
-def generar_sql_openai(pregunta: str) -> dict:
+def generar_sql_openai(pregunta: str, modelo: str | None = None) -> dict:
     """Genera SQL con cualquier backend compatible con la API de OpenAI."""
+    modelo = modelo or Config.OPENAI_MODEL
     try:
         response = openai_client.chat.completions.create(
-            model=Config.OPENAI_MODEL,
+            model=modelo,
             max_tokens=Config.MAX_TOKENS_SQL,
             temperature=Config.TEMPERATURE,
             messages=[{"role": "user", "content": _prompt_sql(pregunta)}]
         )
         sql = _validar_sql(response.choices[0].message.content or "")
         if sql:
-            return {"sql": sql, "modelo": Config.OPENAI_MODEL}
+            return {"sql": sql, "modelo": modelo}
         return {"sql": None}
     except Exception as e:
         logger.error(f"[OpenAI] Error: {e}")
@@ -405,8 +407,36 @@ def listar_backends() -> list[dict]:
     ]
 
 
-def procesar_con_ia(pregunta: str) -> dict:
-    """Genera SQL usando el mejor backend: Ollama local > Claude > compatible OpenAI."""
+def backend_disponible(backend: str) -> bool:
+    """Indica si un backend concreto puede atender peticiones ahora mismo."""
+    if backend == "ollama":
+        return ollama_disponible()
+    if backend == "claude":
+        return USE_CLAUDE
+    if backend == "openai":
+        return USE_OPENAI
+    return False
+
+
+def procesar_con_ia(pregunta: str, backend: str | None = None, modelo: str | None = None) -> dict:
+    """
+    Genera SQL. Con `backend` se usa solo ese (sin caer a otro, para que la
+    eleccion del usuario no se ignore en silencio); sin el, cadena automatica
+    Ollama local > Claude > compatible OpenAI.
+    """
+    if backend:
+        generadores = {
+            "ollama": generar_sql_ollama,
+            "claude": generar_sql_claude,
+            "openai": generar_sql_openai,
+        }
+        generador = generadores.get(backend)
+        if not generador:
+            return {"sql": None, "error": f"Backend desconocido: {backend}"}
+        if not backend_disponible(backend):
+            return {"sql": None, "error": f"El backend '{backend}' no esta disponible"}
+        return generador(pregunta, modelo)
+
     if ollama_disponible():
         result = generar_sql_ollama(pregunta)
         if result.get("sql"):

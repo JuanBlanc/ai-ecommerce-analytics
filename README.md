@@ -210,6 +210,6 @@ dir/
 - `GET /estadisticas/monthly-trends` - Tendencias
 
 ### Chat
-- `POST /chat/` - Enviar pregunta
+- `POST /chat/` - Enviar pregunta (`backend` y `modelo` opcionales)
 - `GET /chat/modelos` - Backends de IA y modelos disponibles
 - `GET /chat/historial` - Historial

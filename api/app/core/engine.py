@@ -30,13 +30,26 @@ def get_backend_info() -> str:
     return " > ".join(backends) if backends else "Sin backend configurado"
 
 
-def procesar_pregunta(pregunta: str) -> dict:
-    """Procesa una pregunta y genera SQL."""
-    resultado = procesar_con_ia(pregunta)
+def procesar_pregunta(pregunta: str, backend: str | None = None, modelo: str | None = None) -> dict:
+    """
+    Procesa una pregunta y genera SQL.
+    `backend` y `modelo` son opcionales; sin ellos se usa la cadena automatica.
+    """
+    resultado = procesar_con_ia(pregunta, backend, modelo)
     sql = resultado.get("sql")
-    modelo = resultado.get("modelo", "desconocido")
+    modelo_usado = resultado.get("modelo")
 
     if not sql:
+        # Si el backend elegido fallo, decir por que en vez del mensaje generico
+        detalle = resultado.get("error")
+        if detalle:
+            return {
+                "query_sql": None,
+                "respuesta": f"{detalle}. Consulta los backends en GET /chat/modelos.",
+                "modelo": modelo_usado,
+                "error": True
+            }
+
         return {
             "query_sql": None,
             "respuesta": f"""No pude generar una consulta para esa pregunta.
@@ -49,12 +62,14 @@ Prueba con preguntas mas especificas como:
 - Distribucion de metodos de pago
 
 Backend: {get_backend_info()}""",
+            "modelo": modelo_usado,
             "error": False
         }
 
     return {
         "query_sql": sql,
-        "respuesta": f"Consultando con {modelo}...",
+        "respuesta": f"Consultando con {modelo_usado}...",
+        "modelo": modelo_usado,
         "error": False
     }
 
