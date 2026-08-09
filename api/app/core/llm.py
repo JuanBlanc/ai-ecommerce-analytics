@@ -29,8 +29,7 @@ class Config:
     CLAUDE_MODEL = "claude-haiku-4-5-20251001"
 
     # Backend generico compatible con la API de OpenAI:
-    # OpenAI, OpenRouter, LM Studio, vLLM o el endpoint /openai de Gemini.
-    # Solo hay que cambiar OPENAI_BASE_URL.
+    # OpenAI, OpenRouter, LM Studio, vLLM... Solo hay que cambiar OPENAI_BASE_URL.
     OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini").strip()
     OPENAI_BASE_URL = os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1").strip().rstrip("/")
 

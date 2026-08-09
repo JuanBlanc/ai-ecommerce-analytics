@@ -133,7 +133,7 @@ function Chat() {
   const [mensajes, setMensajes] = useState([
     {
       tipo: 'bot',
-      texto: '¡Hola! Soy el asistente IA de Olist potenciado por Gemini. Puedo analizar los 100k+ pedidos del e-commerce brasileño y mostrarte gráficas con insights. ¿Qué quieres saber?',
+      texto: '¡Hola! Soy el asistente IA de Olist. Puedo analizar los 100k+ pedidos del e-commerce brasileño y mostrarte gráficas con insights. ¿Qué quieres saber?',
       datos: null
     }
   ]);
@@ -191,7 +191,7 @@ function Chat() {
       <div className="mb-4">
         <h1 className="text-3xl font-bold text-white flex items-center gap-3">
           <Sparkles className="text-yellow-400" />
-          Chatbot IA con Gemini
+          Chatbot IA
         </h1>
         <p className="text-gray-400 mt-1">Consultas inteligentes con análisis y gráficas automáticas</p>
       </div>
@@ -299,7 +299,7 @@ function Chat() {
               <div className="bg-gray-700 rounded-xl px-4 py-3 text-gray-300">
                 <span className="animate-pulse flex items-center gap-2">
                   <Sparkles size={14} className="animate-spin" />
-                  Gemini está analizando...
+                  Analizando...
                 </span>
               </div>
             </div>
