@@ -1,10 +1,11 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from .routers import orders, customers, products, sellers, reviews, estadisticas, chat
+from .core import get_backend_info
 
 app = FastAPI(
     title="Olist E-Commerce API",
-    description="API para análisis de datos de e-commerce brasileño con chatbot de consultas en lenguaje natural",
+    description="API para análisis de datos de e-commerce brasileño con chatbot de consultas en lenguaje natural. Integra el módulo CORE (app/core) como motor de IA.",
     version="2.0.0"
 )
 
@@ -43,6 +44,7 @@ def root():
             "estadisticas": "/estadisticas - Métricas y análisis",
             "chat": "/chat - Chatbot IA"
         },
+        "core_backend": get_backend_info(),
         "dataset": {
             "source": "Kaggle - Brazilian E-Commerce by Olist",
             "orders": "~100,000",
@@ -57,4 +59,4 @@ def root():
 @app.get("/health", tags=["Health"])
 def health_check():
     """Health check para Docker"""
-    return {"status": "healthy"}
+    return {"status": "healthy", "core_backend": get_backend_info()}

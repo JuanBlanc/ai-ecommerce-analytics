@@ -25,24 +25,7 @@ services:
     container_name: empresa_api
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-admin}:${POSTGRES_PASSWORD:-admin123}@db:5432/${POSTGRES_DB:-empresa}
-      CORE_URL: http://core:8000
-    ports:
-      - "8000:8000"
-    volumes:
-      - ./api:/app
-      - ./data:/app/data
-    depends_on:
-      db:
-        condition: service_healthy
-      core:
-        condition: service_started
-
-  core:
-    build:
-      context: ./core
-      dockerfile: Dockerfile
-    container_name: empresa_core
-    environment:
+      # Modulo CORE (app/core) embebido en la API
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
       # Ollama se busca en el host, no se levanta como contenedor
@@ -53,9 +36,13 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
     ports:
-      - "8001:8000"
+      - "8000:8000"
     volumes:
-      - ./core:/app
+      - ./api:/app
+      - ./data:/app/data
+    depends_on:
+      db:
+        condition: service_healthy
 
   client:
     build:

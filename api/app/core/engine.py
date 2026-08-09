@@ -1,6 +1,8 @@
 """
-Motor de procesamiento de preguntas.
+Motor de procesamiento de preguntas del modulo CORE.
 Usa Claude, Gemini o un Ollama local para generar SQL y analizar.
+
+Punto de entrada del modulo: la API importa estas funciones, no las reimplementa.
 """
 
 from .llm import (

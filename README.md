@@ -7,17 +7,20 @@ Sistema de analisis de datos de e-commerce brasileno con chatbot de consultas en
 ## Arquitectura
 
 ```
-┌─────────────┐     ┌─────────────┐     ┌─────────────┐
-│   Client    │────▶│     API     │────▶│  PostgreSQL │
-│   (React)   │     │  (FastAPI)  │     │     (DB)    │
-└─────────────┘     └──────┬──────┘     └─────────────┘
-                          │
-                          ▼
-                   ┌─────────────┐
-                   │    CORE     │
-                   │  (NLP/IA)   │
-                   └─────────────┘
+┌─────────────┐     ┌───────────────────────┐     ┌─────────────┐
+│   Client    │────▶│         API           │────▶│  PostgreSQL │
+│   (React)   │     │      (FastAPI)        │     │     (DB)    │
+└─────────────┘     │                       │     └─────────────┘
+                    │  ┌─────────────────┐  │
+                    │  │  CORE (app/core)│  │
+                    │  │    NLP / IA     │──┼──▶ Claude / Gemini
+                    │  └─────────────────┘  │    Ollama (host)
+                    └───────────────────────┘
 ```
+
+El **CORE** es un paquete independiente (`api/app/core/`) que la API importa: genera
+el SQL a partir de la pregunta y analiza los resultados. No accede a la base de
+datos; recibe los datos ya consultados por la API.
 
 ## Dataset Olist
 
@@ -74,7 +77,7 @@ docker exec -it empresa_api python -m app.import_data
 | Frontend React | http://localhost:3000 |
 | API FastAPI | http://localhost:8000 |
 | API Docs (Swagger) | http://localhost:8000/docs |
-| CORE NLP | http://localhost:8001 |
+| Backend IA activo | http://localhost:8000/health |
 
 ## Chatbot IA
 
@@ -129,6 +132,10 @@ dir/
 │       ├── models.py
 │       ├── schemas.py
 │       ├── import_data.py   # Script de importacion
+│       ├── core/            # Modulo CORE (IA), importado por la API
+│       │   ├── __init__.py  # API publica del modulo
+│       │   ├── engine.py    # Motor NLP
+│       │   └── llm.py       # Clientes Claude / Gemini / Ollama
 │       └── routers/
 │           ├── orders.py
 │           ├── customers.py
@@ -137,12 +144,6 @@ dir/
 │           ├── reviews.py
 │           ├── estadisticas.py
 │           └── chat.py
-├── core/
-│   ├── Dockerfile
-│   ├── requirements.txt
-│   └── src/
-│       ├── main.py
-│       └── engine.py        # Motor NLP
 ├── client/
 │   ├── Dockerfile
 │   ├── package.json
@@ -164,6 +165,7 @@ dir/
 ## Tecnologias
 
 - **Backend**: Python 3.11, FastAPI, SQLAlchemy, Pydantic, Pandas
+- **IA (modulo CORE)**: Claude (Anthropic), Gemini (Google), Ollama local opcional
 - **Frontend**: React 18, Vite, Tailwind CSS, Recharts, Lucide Icons
 - **Base de datos**: PostgreSQL 15
 - **Infraestructura**: Docker, Docker Compose
