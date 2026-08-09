@@ -27,7 +27,10 @@ services:
       DATABASE_URL: postgresql://${POSTGRES_USER:-admin}:${POSTGRES_PASSWORD:-admin123}@db:5432/${POSTGRES_DB:-empresa}
       # Modulo CORE (app/core) embebido en la API
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
-      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      # Backend generico compatible con la API de OpenAI
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_BASE_URL: ${OPENAI_BASE_URL:-https://api.openai.com/v1}
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o-mini}
       # Ollama se busca en el host, no se levanta como contenedor
       USE_OLLAMA: ${USE_OLLAMA:-false}
       OLLAMA_URL: ${OLLAMA_URL:-http://host.docker.internal:11434}

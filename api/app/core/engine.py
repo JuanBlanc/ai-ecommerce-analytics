@@ -1,6 +1,7 @@
 """
 Motor de procesamiento de preguntas del modulo CORE.
-Usa Claude, Gemini o un Ollama local para generar SQL y analizar.
+Usa Claude, un backend compatible con OpenAI o un Ollama local para generar
+SQL y analizar.
 
 Punto de entrada del modulo: la API importa estas funciones, no las reimplementa.
 """
@@ -9,9 +10,11 @@ from .llm import (
     procesar_con_ia,
     analizar_resultados,
     ollama_disponible,
+    modelo_ollama_por_defecto,
+    listar_backends,
     Config,
     USE_CLAUDE,
-    USE_GEMINI
+    USE_OPENAI
 )
 
 
@@ -19,11 +22,11 @@ def get_backend_info() -> str:
     """Devuelve info de los backends disponibles."""
     backends = []
     if ollama_disponible():
-        backends.append(f"Ollama local ({Config.OLLAMA_MODEL})")
+        backends.append(f"Ollama local ({modelo_ollama_por_defecto()})")
     if USE_CLAUDE:
         backends.append("Claude")
-    if USE_GEMINI:
-        backends.append("Gemini")
+    if USE_OPENAI:
+        backends.append(f"Compatible OpenAI ({Config.OPENAI_MODEL})")
     return " > ".join(backends) if backends else "Sin backend configurado"
 
 

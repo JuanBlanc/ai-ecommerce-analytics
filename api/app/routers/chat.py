@@ -4,8 +4,8 @@ from sqlalchemy import text
 from typing import List
 from ..database import get_db
 from ..models import QueryLog
-from ..schemas import ChatQuery, ChatResponse, GraficaConfig
-from ..core import procesar_pregunta, analizar_datos
+from ..schemas import ChatQuery, ChatResponse, GraficaConfig, BackendIA
+from ..core import procesar_pregunta, analizar_datos, listar_backends
 
 router = APIRouter(prefix="/chat", tags=["Chatbot IA"])
 
@@ -111,6 +111,15 @@ def procesar_consulta(query: ChatQuery, db: Session = Depends(get_db)):
         insights=insights if insights else None,
         exitosa=bool(query_sql)
     )
+
+
+@router.get("/modelos", response_model=List[BackendIA])
+def listar_modelos():
+    """
+    Backends de IA disponibles y modelos seleccionables.
+    Ollama devuelve todos los modelos que tenga instalados en el host.
+    """
+    return listar_backends()
 
 
 @router.get("/historial", response_model=List[dict])

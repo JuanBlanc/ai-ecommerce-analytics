@@ -7,15 +7,15 @@ Sistema de analisis de datos de e-commerce brasileno con chatbot de consultas en
 ## Arquitectura
 
 ```
-┌─────────────┐     ┌───────────────────────┐     ┌─────────────┐
+┌─────────────┐      ┌───────────────────────┐      ┌─────────────┐
 │   Client    │────▶│         API           │────▶│  PostgreSQL │
-│   (React)   │     │      (FastAPI)        │     │     (DB)    │
-└─────────────┘     │                       │     └─────────────┘
-                    │  ┌─────────────────┐  │
-                    │  │  CORE (app/core)│  │
-                    │  │    NLP / IA     │──┼──▶ Claude / Gemini
-                    │  └─────────────────┘  │    Ollama (host)
-                    └───────────────────────┘
+│   (React)   │      │      (FastAPI)        │      │     (DB)    │
+└─────────────┘      │                       │      └─────────────┘
+                     │  ┌─────────────────┐  │
+                     │  │  CORE (app/core)│  │
+                     │  │    NLP / IA     │──┼──▶ Claude / compat. OpenAI
+                     │  └─────────────────┘  │    Ollama (host)
+                     └───────────────────────┘
 ```
 
 El **CORE** es un paquete independiente (`api/app/core/`) que la API importa: genera
@@ -135,7 +135,7 @@ dir/
 │       ├── core/            # Modulo CORE (IA), importado por la API
 │       │   ├── __init__.py  # API publica del modulo
 │       │   ├── engine.py    # Motor NLP
-│       │   └── llm.py       # Clientes Claude / Gemini / Ollama
+│       │   └── llm.py       # Clientes Claude / compat. OpenAI / Ollama
 │       └── routers/
 │           ├── orders.py
 │           ├── customers.py
@@ -165,7 +165,7 @@ dir/
 ## Tecnologias
 
 - **Backend**: Python 3.11, FastAPI, SQLAlchemy, Pydantic, Pandas
-- **IA (modulo CORE)**: Claude (Anthropic), Gemini (Google), Ollama local opcional
+- **IA (modulo CORE)**: Claude (SDK Anthropic), backend generico compatible con OpenAI, Ollama local opcional
 - **Frontend**: React 18, Vite, Tailwind CSS, Recharts, Lucide Icons
 - **Base de datos**: PostgreSQL 15
 - **Infraestructura**: Docker, Docker Compose
@@ -211,4 +211,5 @@ dir/
 
 ### Chat
 - `POST /chat/` - Enviar pregunta
+- `GET /chat/modelos` - Backends de IA y modelos disponibles
 - `GET /chat/historial` - Historial

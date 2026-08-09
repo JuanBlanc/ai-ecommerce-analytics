@@ -1,11 +1,11 @@
 """
 Cliente LLM con soporte para:
-- sqlcoder via Ollama instalado en el host (SQL gratis, opcional)
-- Claude (API Anthropic)
-- Gemini (API Google)
+- Ollama instalado en el host (SQL gratis, opcional)
+- Claude (SDK nativo de Anthropic)
+- Cualquier backend compatible con la API de OpenAI
 
-Prioridad SQL: Ollama local > Claude > Gemini
-Prioridad Analisis: Claude > Gemini
+Prioridad SQL: Ollama local > Claude > compatible OpenAI
+Prioridad Analisis: Claude > compatible OpenAI
 """
 
 import os
@@ -27,7 +27,13 @@ class Config:
     TEMPERATURE = 0.1
 
     CLAUDE_MODEL = "claude-haiku-4-5-20251001"
-    GEMINI_MODEL = "gemini-pro"
+
+    # Backend generico compatible con la API de OpenAI:
+    # OpenAI, OpenRouter, LM Studio, vLLM o el endpoint /openai de Gemini.
+    # Solo hay que cambiar OPENAI_BASE_URL.
+    OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini").strip()
+    OPENAI_BASE_URL = os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1").strip().rstrip("/")
+
     # Ollama corre en el ordenador del usuario, no en un contenedor propio
     OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "sqlcoder:7b").strip()
     OLLAMA_URL = os.getenv("OLLAMA_URL", "http://host.docker.internal:11434").strip().rstrip("/")
@@ -36,13 +42,16 @@ class Config:
 
 # Variables de entorno
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "").strip()
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "").strip()
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "").strip()
 USE_OLLAMA_ENV = os.getenv("USE_OLLAMA", "false").lower() in ("true", "1", "yes")
 
 # Flags de disponibilidad
 USE_CLAUDE = bool(ANTHROPIC_API_KEY)
-USE_GEMINI = bool(GEMINI_API_KEY)
+USE_OPENAI = bool(OPENAI_API_KEY)
 OLLAMA_AVAILABLE = False
+
+# Modelos instalados en el Ollama del host (se rellena al detectarlo)
+OLLAMA_MODELS: list[str] = []
 
 # Momento de la ultima busqueda de Ollama (monotonic)
 _ultima_busqueda_ollama = 0.0
@@ -128,18 +137,9 @@ def _respuesta_fallback(datos: list, columnas: list) -> dict:
 
 # === INICIALIZACION ===
 
-def _modelo_instalado(modelos: list) -> bool:
-    """Comprueba si el modelo configurado esta entre los instalados en Ollama."""
-    base_configurado = Config.OLLAMA_MODEL.split(":")[0]
-    return any(
-        modelo == Config.OLLAMA_MODEL or modelo.split(":")[0] == base_configurado
-        for modelo in modelos
-    )
-
-
 def check_ollama() -> bool:
-    """Busca un servicio Ollama en el host con el modelo configurado."""
-    global OLLAMA_AVAILABLE, _ultima_busqueda_ollama
+    """Busca un Ollama en el host y cachea los modelos que tiene instalados."""
+    global OLLAMA_AVAILABLE, OLLAMA_MODELS, _ultima_busqueda_ollama
     _ultima_busqueda_ollama = time.monotonic()
     if not USE_OLLAMA_ENV:
         return False
@@ -152,25 +152,47 @@ def check_ollama() -> bool:
                 )
                 return False
 
-            modelos = [m["name"] for m in response.json().get("models", [])]
-            if _modelo_instalado(modelos):
-                OLLAMA_AVAILABLE = True
-                logger.info(
-                    f"[LLM] Ollama detectado en {Config.OLLAMA_URL} "
-                    f"con el modelo {Config.OLLAMA_MODEL}"
-                )
-                return True
+            OLLAMA_MODELS = sorted(m["name"] for m in response.json().get("models", []))
+            OLLAMA_AVAILABLE = bool(OLLAMA_MODELS)
 
-            logger.warning(
-                f"[LLM] Ollama accesible en {Config.OLLAMA_URL} pero sin el modelo "
-                f"{Config.OLLAMA_MODEL}. Instalalo con: ollama pull {Config.OLLAMA_MODEL}"
+            if not OLLAMA_AVAILABLE:
+                logger.warning(
+                    f"[LLM] Ollama accesible en {Config.OLLAMA_URL} pero sin modelos "
+                    f"instalados. Descarga uno con: ollama pull {Config.OLLAMA_MODEL}"
+                )
+                return False
+
+            logger.info(
+                f"[LLM] Ollama detectado en {Config.OLLAMA_URL} con "
+                f"{len(OLLAMA_MODELS)} modelo(s): {', '.join(OLLAMA_MODELS)}"
             )
+            return True
     except Exception as e:
         logger.info(
             f"[LLM] No se encontro Ollama en {Config.OLLAMA_URL} ({e}). "
-            "Se usara Claude/Gemini."
+            "Se usara Claude o el backend compatible con OpenAI."
         )
     return False
+
+
+def modelo_ollama_por_defecto() -> str | None:
+    """
+    Modelo de Ollama a usar: el configurado si esta instalado (tolerando otro
+    tag), y si no el primero disponible.
+    """
+    if not OLLAMA_MODELS:
+        return None
+
+    base_configurado = Config.OLLAMA_MODEL.split(":")[0]
+    for modelo in OLLAMA_MODELS:
+        if modelo == Config.OLLAMA_MODEL or modelo.split(":")[0] == base_configurado:
+            return modelo
+
+    logger.warning(
+        f"[LLM] {Config.OLLAMA_MODEL} no esta instalado; se usara {OLLAMA_MODELS[0]}. "
+        f"Para generar SQL conviene: ollama pull {Config.OLLAMA_MODEL}"
+    )
+    return OLLAMA_MODELS[0]
 
 
 # Inicializar al importar
@@ -182,19 +204,37 @@ if USE_CLAUDE:
     claude_client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
     logger.info("[LLM] Claude configurado")
 
-if USE_GEMINI:
-    import google.generativeai as genai
-    genai.configure(api_key=GEMINI_API_KEY)
-    logger.info("[LLM] Gemini configurado")
+if USE_OPENAI:
+    from openai import OpenAI
+    openai_client = OpenAI(api_key=OPENAI_API_KEY, base_url=Config.OPENAI_BASE_URL)
+    logger.info(
+        f"[LLM] Backend compatible OpenAI configurado en {Config.OPENAI_BASE_URL} "
+        f"(modelo {Config.OPENAI_MODEL})"
+    )
 
-if not USE_CLAUDE and not USE_GEMINI:
+if not USE_CLAUDE and not USE_OPENAI:
     logger.warning("[LLM] No hay API key configurada para analisis")
 
 
 # === GENERACION SQL ===
 
+def _prompt_sql(pregunta: str) -> str:
+    """Prompt de generacion de SQL para los backends conversacionales."""
+    return f"""Genera SOLO una query SQL para PostgreSQL. Sin explicaciones, sin markdown.
+
+{DB_SCHEMA}
+
+Pregunta: {pregunta}
+
+Responde SOLO con el SELECT (maximo {Config.SQL_LIMIT} filas con LIMIT):"""
+
+
 def generar_sql_ollama(pregunta: str) -> dict:
     """Genera SQL usando el Ollama instalado en el host."""
+    modelo = modelo_ollama_por_defecto()
+    if not modelo:
+        return {"sql": None}
+
     prompt = f"""### Task
 Generate a SQL query to answer the following question: `{pregunta}`
 
@@ -209,7 +249,7 @@ Only respond with the SQL query, no explanation. Use LIMIT {Config.SQL_LIMIT}.
             response = http_client.post(
                 f"{Config.OLLAMA_URL}/api/generate",
                 json={
-                    "model": Config.OLLAMA_MODEL,
+                    "model": modelo,
                     "prompt": prompt,
                     "stream": False,
                     "options": {"temperature": Config.TEMPERATURE, "num_predict": Config.MAX_TOKENS_SQL}
@@ -219,7 +259,7 @@ Only respond with the SQL query, no explanation. Use LIMIT {Config.SQL_LIMIT}.
                 text = response.json().get("response", "")
                 sql = _validar_sql(text)
                 if sql:
-                    return {"sql": sql, "modelo": Config.OLLAMA_MODEL}
+                    return {"sql": sql, "modelo": modelo}
     except Exception as e:
         logger.error(f"[Ollama] Error: {e}")
     return {"sql": None}
@@ -227,49 +267,37 @@ Only respond with the SQL query, no explanation. Use LIMIT {Config.SQL_LIMIT}.
 
 def generar_sql_claude(pregunta: str) -> dict:
     """Genera SQL usando Claude."""
-    prompt = f"""Genera SOLO una query SQL para PostgreSQL. Sin explicaciones, sin markdown.
-
-{DB_SCHEMA}
-
-Pregunta: {pregunta}
-
-Responde SOLO con el SELECT (maximo {Config.SQL_LIMIT} filas con LIMIT):"""
-
     try:
         message = claude_client.messages.create(
             model=Config.CLAUDE_MODEL,
             max_tokens=Config.MAX_TOKENS_SQL,
-            messages=[{"role": "user", "content": prompt}]
+            messages=[{"role": "user", "content": _prompt_sql(pregunta)}]
         )
         text = message.content[0].text
         sql = _validar_sql(text)
         if sql:
-            return {"sql": sql, "modelo": "claude-haiku"}
+            return {"sql": sql, "modelo": Config.CLAUDE_MODEL}
         return {"sql": None}
     except Exception as e:
         logger.error(f"[Claude] Error: {e}")
         return {"sql": None, "error": str(e)}
 
 
-def generar_sql_gemini(pregunta: str) -> dict:
-    """Genera SQL usando Gemini."""
-    prompt = f"""Genera SOLO una query SQL para PostgreSQL. Sin explicaciones.
-
-{DB_SCHEMA}
-
-Pregunta: {pregunta}
-
-Responde SOLO con el SELECT (maximo {Config.SQL_LIMIT} filas con LIMIT):"""
-
+def generar_sql_openai(pregunta: str) -> dict:
+    """Genera SQL con cualquier backend compatible con la API de OpenAI."""
     try:
-        model = genai.GenerativeModel(Config.GEMINI_MODEL)
-        response = model.generate_content(prompt)
-        sql = _validar_sql(response.text)
+        response = openai_client.chat.completions.create(
+            model=Config.OPENAI_MODEL,
+            max_tokens=Config.MAX_TOKENS_SQL,
+            temperature=Config.TEMPERATURE,
+            messages=[{"role": "user", "content": _prompt_sql(pregunta)}]
+        )
+        sql = _validar_sql(response.choices[0].message.content or "")
         if sql:
-            return {"sql": sql, "modelo": "gemini"}
+            return {"sql": sql, "modelo": Config.OPENAI_MODEL}
         return {"sql": None}
     except Exception as e:
-        logger.error(f"[Gemini] Error: {e}")
+        logger.error(f"[OpenAI] Error: {e}")
         return {"sql": None, "error": str(e)}
 
 
@@ -308,19 +336,23 @@ def analizar_claude(pregunta: str, datos: list, columnas: list) -> dict:
     return _respuesta_fallback(datos, columnas)
 
 
-def analizar_gemini(pregunta: str, datos: list, columnas: list) -> dict:
-    """Analiza resultados usando Gemini."""
+def analizar_openai(pregunta: str, datos: list, columnas: list) -> dict:
+    """Analiza resultados con el backend compatible con OpenAI."""
     if not datos:
         return _respuesta_vacia()
 
     try:
-        model = genai.GenerativeModel(Config.GEMINI_MODEL)
-        response = model.generate_content(_prompt_analisis(pregunta, datos, columnas))
-        result = _extraer_json(response.text)
+        response = openai_client.chat.completions.create(
+            model=Config.OPENAI_MODEL,
+            max_tokens=Config.MAX_TOKENS_ANALYSIS,
+            temperature=Config.TEMPERATURE,
+            messages=[{"role": "user", "content": _prompt_analisis(pregunta, datos, columnas)}]
+        )
+        result = _extraer_json(response.choices[0].message.content or "")
         if result:
             return result
     except Exception as e:
-        logger.error(f"[Gemini] Error analisis: {e}")
+        logger.error(f"[OpenAI] Error analisis: {e}")
 
     return _respuesta_fallback(datos, columnas)
 
@@ -342,8 +374,39 @@ def ollama_disponible() -> bool:
     return OLLAMA_AVAILABLE
 
 
+def listar_backends() -> list[dict]:
+    """
+    Backends de IA y modelos seleccionables desde el cliente.
+    Solo Ollama expone varios modelos; Claude y el compatible-OpenAI exponen
+    el que tienen configurado.
+    """
+    return [
+        {
+            "id": "ollama",
+            "nombre": "Ollama local",
+            "disponible": ollama_disponible(),
+            "modelos": list(OLLAMA_MODELS),
+            "modelo_por_defecto": modelo_ollama_por_defecto(),
+        },
+        {
+            "id": "claude",
+            "nombre": "Claude (Anthropic)",
+            "disponible": USE_CLAUDE,
+            "modelos": [Config.CLAUDE_MODEL] if USE_CLAUDE else [],
+            "modelo_por_defecto": Config.CLAUDE_MODEL if USE_CLAUDE else None,
+        },
+        {
+            "id": "openai",
+            "nombre": "Compatible OpenAI",
+            "disponible": USE_OPENAI,
+            "modelos": [Config.OPENAI_MODEL] if USE_OPENAI else [],
+            "modelo_por_defecto": Config.OPENAI_MODEL if USE_OPENAI else None,
+        },
+    ]
+
+
 def procesar_con_ia(pregunta: str) -> dict:
-    """Genera SQL usando el mejor backend: Ollama local > Claude > Gemini."""
+    """Genera SQL usando el mejor backend: Ollama local > Claude > compatible OpenAI."""
     if ollama_disponible():
         result = generar_sql_ollama(pregunta)
         if result.get("sql"):
@@ -354,18 +417,18 @@ def procesar_con_ia(pregunta: str) -> dict:
         if result.get("sql"):
             return result
 
-    if USE_GEMINI:
-        return generar_sql_gemini(pregunta)
+    if USE_OPENAI:
+        return generar_sql_openai(pregunta)
 
     return {"sql": None, "error": "No hay backend de IA disponible"}
 
 
 def analizar_resultados(pregunta: str, datos: list, columnas: list) -> dict:
-    """Analiza resultados usando Claude o Gemini."""
+    """Analiza resultados usando Claude o el backend compatible con OpenAI."""
     if USE_CLAUDE:
         return analizar_claude(pregunta, datos, columnas)
-    elif USE_GEMINI:
-        return analizar_gemini(pregunta, datos, columnas)
+    elif USE_OPENAI:
+        return analizar_openai(pregunta, datos, columnas)
     else:
         return {
             "respuesta": f"Se encontraron {len(datos)} resultados (sin IA para analisis).",

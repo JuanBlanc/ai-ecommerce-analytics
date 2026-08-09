@@ -143,6 +143,15 @@ class ChatResponse(BaseModel):
     exitosa: bool = True
 
 
+class BackendIA(BaseModel):
+    """Backend de IA y los modelos que expone para seleccion en el cliente."""
+    id: str
+    nombre: str
+    disponible: bool
+    modelos: List[str] = []
+    modelo_por_defecto: Optional[str] = None
+
+
 # ============ ESTADISTICAS ============
 class EstadisticasResponse(BaseModel):
     total_orders: int
