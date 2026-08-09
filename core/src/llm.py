@@ -1,15 +1,16 @@
 """
 Cliente LLM con soporte para:
-- sqlcoder via Ollama (SQL gratis, opcional)
+- sqlcoder via Ollama instalado en el host (SQL gratis, opcional)
 - Claude (API Anthropic)
 - Gemini (API Google)
 
-Prioridad SQL: Ollama > Claude > Gemini
+Prioridad SQL: Ollama local > Claude > Gemini
 Prioridad Analisis: Claude > Gemini
 """
 
 import os
 import json
+import time
 import logging
 import httpx
 
@@ -27,8 +28,10 @@ class Config:
 
     CLAUDE_MODEL = "claude-haiku-4-5-20251001"
     GEMINI_MODEL = "gemini-pro"
-    OLLAMA_MODEL = "sqlcoder:7b"
-    OLLAMA_URL = os.getenv("OLLAMA_URL", "http://ollama:11434")
+    # Ollama corre en el ordenador del usuario, no en un contenedor propio
+    OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "sqlcoder:7b").strip()
+    OLLAMA_URL = os.getenv("OLLAMA_URL", "http://host.docker.internal:11434").strip().rstrip("/")
+    OLLAMA_CHECK_INTERVAL = 30  # segundos entre re-busquedas del servicio
 
 
 # Variables de entorno
@@ -40,6 +43,9 @@ USE_OLLAMA_ENV = os.getenv("USE_OLLAMA", "false").lower() in ("true", "1", "yes"
 USE_CLAUDE = bool(ANTHROPIC_API_KEY)
 USE_GEMINI = bool(GEMINI_API_KEY)
 OLLAMA_AVAILABLE = False
+
+# Momento de la ultima busqueda de Ollama (monotonic)
+_ultima_busqueda_ollama = 0.0
 
 
 # === ESQUEMA DE BASE DE DATOS ===
@@ -122,22 +128,48 @@ def _respuesta_fallback(datos: list, columnas: list) -> dict:
 
 # === INICIALIZACION ===
 
+def _modelo_instalado(modelos: list) -> bool:
+    """Comprueba si el modelo configurado esta entre los instalados en Ollama."""
+    base_configurado = Config.OLLAMA_MODEL.split(":")[0]
+    return any(
+        modelo == Config.OLLAMA_MODEL or modelo.split(":")[0] == base_configurado
+        for modelo in modelos
+    )
+
+
 def check_ollama() -> bool:
-    """Verifica si Ollama esta disponible y tiene sqlcoder."""
-    global OLLAMA_AVAILABLE
+    """Busca un servicio Ollama en el host con el modelo configurado."""
+    global OLLAMA_AVAILABLE, _ultima_busqueda_ollama
+    _ultima_busqueda_ollama = time.monotonic()
     if not USE_OLLAMA_ENV:
         return False
     try:
         with httpx.Client(timeout=2.0) as http_client:
             response = http_client.get(f"{Config.OLLAMA_URL}/api/tags")
-            if response.status_code == 200:
-                models = [m["name"] for m in response.json().get("models", [])]
-                if any("sqlcoder" in m for m in models):
-                    OLLAMA_AVAILABLE = True
-                    logger.info("[LLM] Ollama detectado con sqlcoder")
-                    return True
+            if response.status_code != 200:
+                logger.warning(
+                    f"[LLM] Ollama respondio {response.status_code} en {Config.OLLAMA_URL}"
+                )
+                return False
+
+            modelos = [m["name"] for m in response.json().get("models", [])]
+            if _modelo_instalado(modelos):
+                OLLAMA_AVAILABLE = True
+                logger.info(
+                    f"[LLM] Ollama detectado en {Config.OLLAMA_URL} "
+                    f"con el modelo {Config.OLLAMA_MODEL}"
+                )
+                return True
+
+            logger.warning(
+                f"[LLM] Ollama accesible en {Config.OLLAMA_URL} pero sin el modelo "
+                f"{Config.OLLAMA_MODEL}. Instalalo con: ollama pull {Config.OLLAMA_MODEL}"
+            )
     except Exception as e:
-        logger.debug(f"[LLM] Ollama no disponible: {e}")
+        logger.info(
+            f"[LLM] No se encontro Ollama en {Config.OLLAMA_URL} ({e}). "
+            "Se usara Claude/Gemini."
+        )
     return False
 
 
@@ -162,7 +194,7 @@ if not USE_CLAUDE and not USE_GEMINI:
 # === GENERACION SQL ===
 
 def generar_sql_ollama(pregunta: str) -> dict:
-    """Genera SQL usando sqlcoder via Ollama."""
+    """Genera SQL usando el Ollama instalado en el host."""
     prompt = f"""### Task
 Generate a SQL query to answer the following question: `{pregunta}`
 
@@ -187,7 +219,7 @@ Only respond with the SQL query, no explanation. Use LIMIT {Config.SQL_LIMIT}.
                 text = response.json().get("response", "")
                 sql = _validar_sql(text)
                 if sql:
-                    return {"sql": sql, "modelo": "sqlcoder"}
+                    return {"sql": sql, "modelo": Config.OLLAMA_MODEL}
     except Exception as e:
         logger.error(f"[Ollama] Error: {e}")
     return {"sql": None}
@@ -295,12 +327,24 @@ def analizar_gemini(pregunta: str, datos: list, columnas: list) -> dict:
 
 # === API PUBLICA ===
 
-def procesar_con_ia(pregunta: str) -> dict:
-    """Genera SQL usando el mejor backend: Ollama > Claude > Gemini."""
-    if not OLLAMA_AVAILABLE:
+def ollama_disponible() -> bool:
+    """
+    Estado actual de Ollama en el host.
+    Si aun no se detecto, vuelve a buscarlo como mucho cada OLLAMA_CHECK_INTERVAL
+    para no penalizar cada peticion con el timeout de conexion.
+    """
+    if OLLAMA_AVAILABLE or not USE_OLLAMA_ENV:
+        return OLLAMA_AVAILABLE
+
+    if time.monotonic() - _ultima_busqueda_ollama >= Config.OLLAMA_CHECK_INTERVAL:
         check_ollama()
 
-    if OLLAMA_AVAILABLE:
+    return OLLAMA_AVAILABLE
+
+
+def procesar_con_ia(pregunta: str) -> dict:
+    """Genera SQL usando el mejor backend: Ollama local > Claude > Gemini."""
+    if ollama_disponible():
         result = generar_sql_ollama(pregunta)
         if result.get("sql"):
             return result

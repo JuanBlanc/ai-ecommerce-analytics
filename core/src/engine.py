@@ -1,22 +1,23 @@
 """
 Motor de procesamiento de preguntas.
-Usa Claude, Gemini o Ollama para generar SQL y analizar.
+Usa Claude, Gemini o un Ollama local para generar SQL y analizar.
 """
 
 from .llm import (
     procesar_con_ia,
     analizar_resultados,
+    ollama_disponible,
+    Config,
     USE_CLAUDE,
-    USE_GEMINI,
-    OLLAMA_AVAILABLE
+    USE_GEMINI
 )
 
 
 def get_backend_info() -> str:
     """Devuelve info de los backends disponibles."""
     backends = []
-    if OLLAMA_AVAILABLE:
-        backends.append("Ollama (sqlcoder)")
+    if ollama_disponible():
+        backends.append(f"Ollama local ({Config.OLLAMA_MODEL})")
     if USE_CLAUDE:
         backends.append("Claude")
     if USE_GEMINI:

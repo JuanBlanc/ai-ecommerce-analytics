@@ -19,41 +19,6 @@ services:
       timeout: 5s
       retries: 5
 
-  # OPCIONAL: Ollama con sqlcoder (SQL gratis, requiere GPU)
-  # https://ollama.com | https://hub.docker.com/r/ollama/ollama
-  # Para activar: docker-compose --profile gpu up
-  ollama:
-    image: ollama/ollama:latest
-    container_name: empresa_ollama
-    profiles: ["gpu"]
-    ports:
-      - "11434:11434"
-    volumes:
-      - ollama_data:/root/.ollama
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: all
-              capabilities: [gpu]
-
-  ollama-init:
-    image: curlimages/curl:latest
-    container_name: empresa_ollama_init
-    profiles: ["gpu"]
-    depends_on:
-      - ollama
-    entrypoint: ["/bin/sh", "-c"]
-    command:
-      - |
-        echo "Esperando a Ollama..."
-        sleep 15
-        echo "Descargando sqlcoder..."
-        curl -X POST http://ollama:11434/api/pull -d '{"name": "sqlcoder:7b"}'
-        echo "Modelo listo!"
-    restart: "no"
-
   api:
     build:
       context: ./api
@@ -81,7 +46,13 @@ services:
     environment:
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      # Ollama se busca en el host, no se levanta como contenedor
       USE_OLLAMA: ${USE_OLLAMA:-false}
+      OLLAMA_URL: ${OLLAMA_URL:-http://host.docker.internal:11434}
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-sqlcoder:7b}
+    # Permite resolver host.docker.internal tambien en Linux
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     ports:
       - "8001:8000"
     volumes:
@@ -104,4 +75,3 @@ services:
 
 volumes:
   postgres_data:
-  ollama_data:

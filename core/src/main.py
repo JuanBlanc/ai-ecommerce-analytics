@@ -1,6 +1,6 @@
 """
 API del modulo CORE - Procesamiento con IA.
-Soporta: Claude, Gemini u Ollama (sqlcoder).
+Soporta: Claude, Gemini o un Ollama instalado en el host.
 """
 
 from fastapi import FastAPI
@@ -10,7 +10,7 @@ from .engine import procesar_pregunta, analizar_datos, get_backend_info
 
 app = FastAPI(
     title="CORE - Motor IA",
-    description="Genera SQL y analiza resultados con Claude/Gemini/Ollama",
+    description="Genera SQL y analiza resultados con Claude/Gemini/Ollama local",
     version="3.1.0"
 )
 
