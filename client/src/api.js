@@ -2,10 +2,23 @@
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
+// Extrae el mensaje de error de la API (FastAPI lo manda en `detail`)
+async function extraerError(response) {
+  try {
+    const cuerpo = await response.json();
+    if (cuerpo?.detail) {
+      return typeof cuerpo.detail === 'string' ? cuerpo.detail : JSON.stringify(cuerpo.detail);
+    }
+  } catch {
+    // La respuesta no traia JSON; se usa el mensaje generico de abajo
+  }
+  return `Error ${response.status}`;
+}
+
 // Funcion auxiliar para peticiones GET
 async function get(endpoint) {
   const response = await fetch(`${API_URL}${endpoint}`);
-  if (!response.ok) throw new Error(`Error ${response.status}`);
+  if (!response.ok) throw new Error(await extraerError(response));
   return response.json();
 }
 
@@ -16,12 +29,22 @@ async function post(endpoint, data) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data)
   });
-  if (!response.ok) throw new Error(`Error ${response.status}`);
+  if (!response.ok) throw new Error(await extraerError(response));
   return response.json();
 }
 
 // === CHATBOT ===
-export const enviarPregunta = (pregunta) => post('/chat/', { pregunta });
+// `backend` y `modelo` son opcionales: sin ellos el CORE usa su cadena automatica.
+// El modelo solo se envia junto al backend, la API lo rechaza suelto.
+export const enviarPregunta = (pregunta, backend = null, modelo = null) => {
+  const payload = { pregunta };
+  if (backend) {
+    payload.backend = backend;
+    if (modelo) payload.modelo = modelo;
+  }
+  return post('/chat/', payload);
+};
+export const obtenerModelos = () => get('/chat/modelos');
 export const obtenerHistorial = () => get('/chat/historial');
 
 // === ESTADISTICAS ===

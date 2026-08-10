@@ -1,7 +1,9 @@
 import { useState, useRef, useEffect } from 'react';
-import { Send, Bot, User, Database, Sparkles, TrendingUp, Lightbulb } from 'lucide-react';
+import { Send, Bot, User, Database, Sparkles, TrendingUp, Lightbulb, Cpu } from 'lucide-react';
 import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { enviarPregunta } from '../api';
+import { useBackends } from '../hooks/useBackends';
+import ModelSelector from '../components/ModelSelector';
 import { CHART_COLORS } from '../utils/constants';
 
 // Preguntas de ejemplo para el chat
@@ -139,6 +141,9 @@ function Chat() {
   ]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
+  // Sin backend elegido el CORE usa su cadena automatica
+  const [seleccion, setSeleccion] = useState({ backend: null, modelo: null });
+  const { backends, cargando, error: errorBackends, recargar } = useBackends();
   const messagesEndRef = useRef(null);
 
   const scrollToBottom = () => {
@@ -160,7 +165,7 @@ function Chat() {
     setLoading(true);
 
     try {
-      const respuesta = await enviarPregunta(pregunta);
+      const respuesta = await enviarPregunta(pregunta, seleccion.backend, seleccion.modelo);
 
       setMensajes(prev => [...prev, {
         tipo: 'bot',
@@ -169,12 +174,13 @@ function Chat() {
         query: respuesta.query_sql,
         grafica: respuesta.grafica,
         insights: respuesta.insights,
+        modeloUsado: respuesta.modelo_usado,
         exitosa: respuesta.exitosa
       }]);
     } catch (error) {
       setMensajes(prev => [...prev, {
         tipo: 'bot',
-        texto: 'Error al procesar la pregunta. Verifica que los servicios estén corriendo y la API key configurada.',
+        texto: error.message || 'Error al procesar la pregunta. Verifica que los servicios estén corriendo y la API key configurada.',
         error: true
       }]);
     } finally {
@@ -194,6 +200,18 @@ function Chat() {
           Chatbot IA
         </h1>
         <p className="text-gray-400 mt-1">Consultas inteligentes con análisis y gráficas automáticas</p>
+      </div>
+
+      {/* Selector de backend y modelo */}
+      <div className="mb-4">
+        <ModelSelector
+          backends={backends}
+          cargando={cargando}
+          error={errorBackends}
+          onRecargar={recargar}
+          seleccion={seleccion}
+          onSeleccionar={setSeleccion}
+        />
       </div>
 
       {/* Ejemplos */}
@@ -236,6 +254,14 @@ function Chat() {
                 }`}>
                   <p className="whitespace-pre-wrap">{msg.texto}</p>
                 </div>
+
+                {/* Modelo que genero el SQL */}
+                {msg.modeloUsado && (
+                  <p className="text-gray-500 text-xs mt-1 flex items-center gap-1">
+                    <Cpu size={11} />
+                    {msg.modeloUsado}
+                  </p>
+                )}
 
                 {/* Insights */}
                 {msg.insights && <InsightsPanel insights={msg.insights} />}

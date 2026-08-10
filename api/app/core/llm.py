@@ -26,7 +26,14 @@ class Config:
     MAX_TOKENS_ANALYSIS = 1000
     TEMPERATURE = 0.1
 
-    CLAUDE_MODEL = "claude-haiku-4-5-20251001"
+    # Modelos de Claude seleccionables desde el cliente.
+    # El primero es el usado por defecto: rapido y barato para generar SQL.
+    CLAUDE_MODELS = [
+        "claude-haiku-4-5",
+        "claude-sonnet-5",
+        "claude-opus-5",
+    ]
+    CLAUDE_MODEL = CLAUDE_MODELS[0]
 
     # Backend generico compatible con la API de OpenAI:
     # OpenAI, OpenRouter, LM Studio, vLLM... Solo hay que cambiar OPENAI_BASE_URL.
@@ -393,7 +400,7 @@ def listar_backends() -> list[dict]:
             "id": "claude",
             "nombre": "Claude (Anthropic)",
             "disponible": USE_CLAUDE,
-            "modelos": [Config.CLAUDE_MODEL] if USE_CLAUDE else [],
+            "modelos": list(Config.CLAUDE_MODELS) if USE_CLAUDE else [],
             "modelo_por_defecto": Config.CLAUDE_MODEL if USE_CLAUDE else None,
         },
         {
